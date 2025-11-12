@@ -1,80 +1,120 @@
-# Предсказание рисков сердечного приступа
+import argparse
+import json
+import logging
+import os
+
+import uvicorn
+from fastapi import FastAPI, Request, UploadFile
+from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+
+from classifier import load_model, predict_class
+
+# Инициализация приложения с метаданными для документации
+app = FastAPI(
+    title="Heart attack prediction",
+    description="Предсказание рисков сердечного приступа",
+    version="1.0.0",
+    contact={
+        "name": "Maxim Starostin",
+        "email": "max-star@yandex.ru"
+    }
+)
+
+# Логирование
+app_logger = logging.getLogger(__name__)
+app_logger.setLevel(logging.INFO)
+app_handler = logging.StreamHandler()
+app_formatter = logging.Formatter(
+    "%(name)s %(asctime)s %(levelname)s %(message)s"
+    )
+app_handler.setFormatter(app_formatter)
+app_logger.addHandler(app_handler)
 
 
-### Описание проекта
-В проекте разработана модель для предсказания риска сердечного приступа, используя данные пациентов, такие как возраст, привычки, состояние здоровья и результаты анализа крови, а также реализовано приложение на FastAPI для получения предсказаний по пользовательскому запросу.
+# Загрузка модели при старте сервера (выполняется один раз)
+try:
+    model = load_model('models/model_heart.pkl')
+except FileNotFoundError:
+    print("Файл модели не найден, запустите train_and_save_model")
+except Exception as e:
+    print(f"Произошла непредвиденная ошибка: {str(e)}")
 
-Общая информация и цель проекта:
-* В проекте используется датасет из открытого источника.
-* Разработана модель машинного обучения.
-* Подготовлена библиотека и интерфейс для предсказания на тестовой выборке.
-
-### Задачи проекта
-В ходе работы над проектом решены следующие задачи:
-* Исследование датасета, поиск дополнительной информации для лучшего понимания природы данных.
-* Предобработка данных. В данных могут быть бесполезные признаки, сильно скорелированные признаки а также косвенные утечки целевого признака.
-* Обучение моделией и выбор лучшей модели и ее параметров.
-* Предсказания на тестовой выборке. Файл предсказаний в csv формате содержит 2 столбца: “id” и “prediction”. 
-* Написан инструмента для тестирования на FastAPI.
-* Оформлена документация.
+templates = Jinja2Templates(directory="templates")
 
 
-### Описание исходных данных
-Описание признаков для  модели
+# Проверка работоспособности
+@app.get(
+    "/health",
+    summary="Поверка работы фреймворка",
+    description="Возвращает старус ОК",
+    tags=["health"]
+    )
+def health():
+    return {"status": "OK"}
 
-Демографические и социальные признаки
-- Age (Возраст) — количество полных лет пациента
-- Gender (Пол) — мужской/женский
-- Income (Доход) — уровень финансового благосостояния
-- id (Идентификатор) — уникальный номер записи
 
-Антропометрические показатели
-- BMI (Индекс массы тела) — соотношение веса и роста
-- Obesity (Ожирение) — наличие/отсутствие ожирения
-- Sedentary Hours Per Day (Часы малоподвижности в день) — время, проведенное в сидячем положении
-- Sleep Hours Per Day (Часы сна в день) — продолжительность ночного сна
+# Главная страница - шаблон загрузки датасета
+@app.get(
+    "/",
+    summary="Форма загрузки датанных для предсказаний",
+    description="Передает файл формата сsv с данными пациентов для предсказаний",
+    tags=["index"]
+    )
+def main(request: Request):
+    '''
+    Функция рендеринкга главной страницы приложения с формой загрузки csv 
+    файла данных, на базе которых нужно предсказать риск сердечного приступа
+    '''
+    return templates.TemplateResponse("start_form.html",
+                                      {"request": request})
 
-Физиологические показатели
-- Cholesterol (Холестерин) — уровень холестерина в крови
-- Triglycerides (Триглицериды) — уровень триглицеридов в крови
-- Blood sugar (Уровень сахара) — концентрация глюкозы в крови
-- Systolic blood pressure (Систолическое давление) — верхнее давление
-- Diastolic blood pressure (Диастолическое давление) — нижнее давление
-- Heart rate (Пульс) — частота сердечных сокращений
-- CK-MB — маркер повреждения сердечной мышцы
-- Troponin — белок, показатель повреждения миокарда
 
-Образ жизни
-- Smoking (Курение) — наличие/отсутствие привычки к курению
-- Alcohol Consumption (Употребление алкоголя) — частота и количество употребления
-- Exercise Hours Per Week (Часы физических упражнений в неделю)
-- Physical Activity Days Per Week (Дни физической активности в неделю)
-- Diet (Питание) — тип и качество питания
-- Stress Level (Уровень стресса) — субъективная оценка стресса
+# Предсказания
+@app.post(
+    "/predict",
+    summary="Получить предсказание",
+    description="Возвращает результат предсказания в формате JSON",
+    tags=["predictions"]
+)
+def predict(file: UploadFile, request: Request):
+    '''
+    Функция получения предсказаний. Сохраняет полученный csv файл в папку tmp,
+    проводит предсказания, выводит их на экран в формате JSON и удаляет файл
+    с данными для предсказаний
+    '''
+    temp_dir = 'tmp'
+    if not os.path.exists(temp_dir):
+        os.makedirs(temp_dir)
+    data_path = os.path.join(temp_dir, file.filename)
+    try:
+        with open(data_path, "wb") as buffer:
+            buffer.write(file.file.read())
+        app_logger.info(f'processing file - {data_path}')
+        predictions = predict_class(model, data_path)
 
-Медицинские показатели и анамнез
-- Diabetes (Диабет) — наличие/отсутствие диабета
-- Family History (Семейный анамнез) — наличие сердечно-сосудистых заболеваний у родственников
-- Previous Heart Problems (Предыдущие проблемы с сердцем) — наличие сердечно-сосудистых заболеваний в анамнезе
-- Medication Use (Прием лекарств) — использование медикаментов
-- Heart Attack Risk (Binary) (Риск инфаркта, бинарный) — целевая переменная, указывающая на риск инфаркта
+        json_data = predictions.to_json(orient='records')
+        return JSONResponse(
+            content={
+                "predictions": json.loads(json_data)
+            },
+            status_code=200
+        )
+    except Exception as e:
+        app_logger.error(f"Ошибка при обработке файла: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Произошла ошибка при обработке файла"}
+        )
+    finally:
+        if os.path.exists(data_path):
+            os.remove(data_path)
 
-Взаимосвязи признаков
-- BMI тесно связан с Obesity
-- Exercise Hours Per Week и Physical Activity Days Per Week связаны с Sedentary Hours Per Day
-- Diet влияет на Cholesterol, Triglycerides и Blood sugar
-- Stress Level может влиять на Heart rate и Blood pressure
-- Medication Use часто связана с Diabetes, Previous Heart Problems
 
-### Используемая метрика оценки качества и сравнения моделей
-В ходе анализа выбрана метрика оценки качества модели, проведено сравнение моделей и выбрана лучшая
-
-### Стек:
-- Python
-- Pandas
-- numpy
-- Scikitlearn
-- CatBoost
-- FastAPI
-- HTML
-
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--port", default=8000, type=int, dest="port")
+    parser.add_argument("--host", default="0.0.0.0", type=str, dest="host")
+    args = vars(parser.parse_args())
+    uvicorn.run(app, **args)
