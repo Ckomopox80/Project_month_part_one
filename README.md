@@ -78,24 +78,38 @@ HTML
 Приложение можно развернуть несколькими способами: в контейнере Docker или в виртуальном окружении.
 
 # Развертывание в контейнере Docker:
+## 1.
 Для развертывания приложение в контейнере необходим установленный Docker и запущенный Docker демон.
-запустите терминал и перейдите в дирректорию в которой будет содержаться проект
-клонируйте репозиторий комайндой: git cline https://github.com/MStarostin/heart_workshop_1.git
-перейдите в дирректорию проекта: cd heart_workshop_1
-из дерриктори проекта создайте докер образ коммандой: docker build -t heart .
-запустите контейнер коммандой: docker run -p 80:8000 --name heart-container  heart
+
+## 2.
+Запустите терминал и перейдите в дирректорию в которой будет содержаться проект,
+клонируйте репозиторий комайндой: git cline https://github.com/Ckomopox80/Project_month_part_one
+перейдите в дирректорию проекта: cd Project_month_part_one
+## 3.
+Из дерриктори проекта создайте докер образ коммандой: docker build -t heart .
+
+## 4.
+Запустите контейнер коммандой: docker run -p 80:8000 --name heart-container  heart
 обучите и сохраните модель коммандой: docker exec -it heart-container python fit_save_model.py
-откройте приложение в браузере по ссылке: http://localhost/
-документация к API: http://localhost/docs и http://localhost/redoc в формате ReDoc
+
+## 5.
+Откройте приложение в браузере по ссылке: https://localhost/
+документация к API: https://localhost/docs и https://localhost/redoc в формате ReDoc
+
+## 6.
 Развертывание в виртуальном окружении:
 запустите терминал и перейдите в дирректорию в которой будет содержаться проект
-клонируйте репозиторий комайндой: git cline https://github.com/MStarostin/heart_workshop_1.git
-перейдите в дирректорию проекта: cd heart_workshop_1
-создайте виртуальное окружение коммандой: python3 -m venv venv
+клонируйте репозиторий комайндой: git cline https://github.com/Ckomopox80/Project_month_part_one
+перейдите в дирректорию проекта: cd Project_month_part_one
+
+## 7.
+Cоздайте виртуальное окружение коммандой: python3 -m venv venv
 активируйте виртуальное окружение коммандой: source venv/bin/activate для Linyx и MacOs и source venv/scripts/activate для Windows
 установите зависимости коммандой: pip install -r requirements.txt
 обучите и сохраните модель коммандой: python fit_save_model.py
-запустите приложение коммандой: uvicorn app:app --reload
-откройте приложение в браузере по ссылке: http://localhost:8000/
-документация к API: http://localhost:8000/docs и http://localhost/redoc в формате ReDoc
+
+## 8.
+Запустите приложение коммандой: uvicorn app:app --reload
+откройте приложение в браузере по ссылке: https://localhost:8000/
+документация к API: https://localhost:8000/docs и https://localhost/redoc в формате ReDoc
 Приложение поучает на вход .csv файл с данными и возвращает предсказани я формате JSON
